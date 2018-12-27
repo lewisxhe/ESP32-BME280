@@ -1,11 +1,13 @@
 #include <stdio.h>
 #include "driver/i2c.h"
 #include "bme280.h"
+#include "ssd1306.h"
 
 /**
  * TEST CODE BRIEF
  *
  * - read external i2c sensor, here we use a bme280  sensor for instance.
+ * - Place read data on OLED
  *
  * Pin assignment:
  *
@@ -15,14 +17,12 @@
  *
  */
 
-
-#define I2C_SCL_PIN_NUM 22        /*!< gpio number for I2C master clock */
-#define I2C_SDA_PIN_NUM 21        /*!< gpio number for I2C master data  */
+#define I2C_SCL_PIN_NUM 22          /*!< gpio number for I2C master clock */
+#define I2C_SDA_PIN_NUM 21          /*!< gpio number for I2C master data  */
 #define I2C_MASTER_NUM I2C_NUM_1    /*!< I2C port number for master dev */
 #define I2C_MASTER_TX_BUF_DISABLE 0 /*!< I2C master do not need buffer */
 #define I2C_MASTER_RX_BUF_DISABLE 0 /*!< I2C master do not need buffer */
 #define I2C_MASTER_FREQ_HZ 100000   /*!< I2C master clock frequency */
-
 
 void user_delay_ms(uint32_t period)
 {
@@ -51,7 +51,7 @@ int8_t user_i2c_read(uint8_t dev_id, uint8_t reg_addr, uint8_t *reg_data, uint16
 
 int8_t user_i2c_write(uint8_t dev_id, uint8_t reg_addr, uint8_t *reg_data, uint16_t len)
 {
-    int ret;    /* Return 0 for Success, non-zero for failure */
+    int ret; /* Return 0 for Success, non-zero for failure */
     i2c_cmd_handle_t cmd = i2c_cmd_link_create();
     i2c_master_start(cmd);
     i2c_master_write_byte(cmd, dev_id << 1 | I2C_MASTER_WRITE, true);
@@ -65,11 +65,21 @@ int8_t user_i2c_write(uint8_t dev_id, uint8_t reg_addr, uint8_t *reg_data, uint1
 
 void print_sensor_data(struct bme280_data *comp_data)
 {
-#ifdef BME280_FLOAT_ENABLE
-    printf("Temperature:%0.2f, Pressure:%0.2f, Humidity:%0.2f\r\n", comp_data->temperature, comp_data->pressure, comp_data->humidity);
-#else
-    printf("Temperature: %d, Pressure:%d, Humidity:%d\r\n", comp_data->temperature, comp_data->pressure, comp_data->humidity);
-#endif
+    // #ifdef BME280_FLOAT_ENABLE
+    //     printf("Temperature:%0.2f, Pressure:%0.2f, Humidity:%0.2f\r\n", comp_data->temperature, comp_data->pressure, comp_data->humidity);
+    // #else
+    //     printf("Temperature: %d, Pressure:%d, Humidity:%d\r\n", comp_data->temperature, comp_data->pressure, comp_data->humidity);
+    // #endif
+    char buff[512];
+    ssd1306_clearScreen();
+    snprintf(buff, sizeof(buff), "Temp    :%0.2f", comp_data->temperature);
+    ssd1306_printFixed(0, 8, buff, STYLE_NORMAL);
+
+    snprintf(buff, sizeof(buff), "Pressure:%0.2f", comp_data->pressure);
+    ssd1306_printFixed(0, 16, buff, STYLE_NORMAL);
+
+    snprintf(buff, sizeof(buff), "Humidity:%0.2f", comp_data->humidity);
+    ssd1306_printFixed(0, 24, buff, STYLE_NORMAL);
 }
 
 int8_t stream_sensor_data_normal_mode(struct bme280_dev *dev)
@@ -106,8 +116,29 @@ int8_t stream_sensor_data_normal_mode(struct bme280_dev *dev)
 
 void app_main()
 {
-    printf("BME280 TEST Project\n");
 
+    ssd1306_setFixedFont(ssd1306xled_font6x8);
+
+    /*
+    *   default use I2C_NUM_1
+    *   SDA --> 21 
+    *   SCL --> 22
+    */
+    ssd1306_128x64_i2c_init();
+
+    ssd1306_clearScreen();
+
+    ssd1306_printFixed(0, 8, "BME280 TEST Project", STYLE_NORMAL);
+
+    delay(3000);
+
+    /*
+    *
+    * The default SSD130 library uses 21, 22 as SDA, SCL, 
+    * and uses I2C_NUM_1. The TWI has been initialized in the ssd1306_128x64_i2c_init function, 
+    * so there is no need to initialize it again here.
+    */
+   /*
     int i2c_master_port = I2C_MASTER_NUM;
     i2c_config_t conf;
     conf.mode = I2C_MODE_MASTER;
@@ -120,7 +151,7 @@ void app_main()
     i2c_driver_install(i2c_master_port, conf.mode,
                        I2C_MASTER_RX_BUF_DISABLE,
                        I2C_MASTER_TX_BUF_DISABLE, 0);
-
+    */
     struct bme280_dev dev;
     int8_t rslt = BME280_OK;
 
